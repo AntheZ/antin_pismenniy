@@ -16,15 +16,18 @@ async def main():
     # Отримання ідентифікаторів каналів і слідкування за ними
     for channel_url in channels:
         channel = await client.get_entity(channel_url)
-        @client.on(events.NewMessage(chats=channel))
-        async def handler(event):
-            message = event.message
-            if message.media and isinstance(message.media, MessageMediaPhoto):
-                media = message.media.photo
-                print(f"Message from {channel.title} at {message.date}: {message.text}")
-                print(f"Image ID: {media.id}")
-            else:
-                print(f"Message from {channel.title} at {message.date}: {message.text}")
+        client.add_event_handler(create_handler(channel), events.NewMessage(chats=channel))
+
+def create_handler(channel):
+    async def handler(event):
+        message = event.message
+        if message.media and isinstance(message.media, MessageMediaPhoto):
+            media = message.media.photo
+            print(f"Message from {channel.title} at {message.date}: {message.text}")
+            print(f"Image ID: {media.id}")
+        else:
+            print(f"Message from {channel.title} at {message.date}: {message.text}")
+    return handler
 
 with client:
     client.loop.run_until_complete(main())

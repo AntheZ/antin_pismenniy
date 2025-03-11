@@ -1,10 +1,7 @@
 # pip install telethon
 from telethon import TelegramClient, events, sync
 from telethon.tl.types import MessageMediaPhoto
-
-api_id = '24517020'
-api_hash = '4d926de9ca53d0caa6cf3923df6c9475'
-phone = '+380634759992'
+from config import api_id, api_hash, bot_token
 
 client = TelegramClient('session_name', api_id, api_hash)
 
@@ -30,5 +27,8 @@ def create_handler(channel):
     return handler
 
 with client:
+    client.connect()  # Підключення без автентифікації
+    if not client.is_user_authorized():
+        client.start(phone=phone)  # Автентифікація тільки якщо потрібно
     client.loop.run_until_complete(main())
     client.run_until_disconnected()

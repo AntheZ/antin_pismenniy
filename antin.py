@@ -29,6 +29,6 @@ def create_handler(channel):
 with client:
     client.connect()  # Підключення без автентифікації
     if not client.is_user_authorized():
-        client.start(phone=phone)  # Автентифікація тільки якщо потрібно
+        client.start(bot_token=bot_token)  # Використання бот токена для автентифікації
     client.loop.run_until_complete(main())
     client.run_until_disconnected()

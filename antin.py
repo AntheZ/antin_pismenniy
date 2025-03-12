@@ -5,7 +5,7 @@ import logging
 from datetime import datetime
 from telethon import TelegramClient, events, sync
 from telethon.tl.types import MessageMediaPhoto
-from config import api_id, api_hash, bot_token
+from config import api_id, api_hash
 
 # Створюємо директорії для логів та повідомлень якщо вони не існують
 os.makedirs('logs', exist_ok=True)
@@ -129,8 +129,9 @@ def main_wrapper():
             logger.info("Підключення до Telegram API встановлено")
             
             if not client.is_user_authorized():
-                client.start(bot_token=bot_token)
-                logger.info("Успішна авторизація за допомогою бот токена")
+                logger.info("Необхідна авторизація. Введіть номер телефону:")
+                client.start()
+                logger.info("Успішна авторизація через номер телефону")
                 
             client.loop.run_until_complete(main())
             logger.info("Бот успішно запущений і очікує повідомлення")

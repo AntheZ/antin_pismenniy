@@ -206,3 +206,6 @@ Thumbs.db
 logs/
 messages/
 media/
+config.py
+session_name.session
+*.session

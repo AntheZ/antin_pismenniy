@@ -209,3 +209,4 @@ media/
 config.py
 session_name.session
 *.session
+*.session

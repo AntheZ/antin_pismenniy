@@ -2,14 +2,24 @@
 import os
 import sys
 import logging
+import re
 from datetime import datetime
 from telethon import TelegramClient, events, sync
 from telethon.tl.types import MessageMediaPhoto
 from config import api_id, api_hash
 
-# Створюємо директорії для логів та повідомлень якщо вони не існують
+# Створюємо директорії для логів, повідомлень та медіа
 os.makedirs('logs', exist_ok=True)
 os.makedirs('messages', exist_ok=True)
+os.makedirs('media', exist_ok=True)
+
+def sanitize_filename(filename):
+    # Видаляємо всі символи, крім букв, цифр, дефісу та підкреслення
+    sanitized = re.sub(r'[^\w\-]', '_', filename)
+    # Замінюємо множинні підкреслення на одне
+    sanitized = re.sub(r'_+', '_', sanitized)
+    # Видаляємо підкреслення з початку та кінця
+    return sanitized.strip('_')
 
 # Налаштування логування
 def setup_logging():
@@ -43,16 +53,45 @@ logger = setup_logging()
 
 client = TelegramClient('session_name', api_id, api_hash)
 
+async def download_media(message, channel_title, message_date):
+    """Завантажує медіа з повідомлення"""
+    if not message.media:
+        return None
+        
+    try:
+        # Створюємо підпапку для каналу
+        channel_folder = sanitize_filename(channel_title)
+        media_path = os.path.join('media', channel_folder)
+        os.makedirs(media_path, exist_ok=True)
+        
+        # Формуємо ім'я файлу з датою та ID повідомлення
+        date_str = message_date.strftime("%Y%m%d_%H%M%S")
+        file_path = os.path.join(media_path, f"{date_str}_{message.id}")
+        
+        # Завантажуємо медіа
+        downloaded_path = await message.download_media(file_path)
+        logger.info(f"Медіа збережено: {downloaded_path}")
+        return downloaded_path
+    except Exception as e:
+        logger.error(f"Помилка при завантаженні медіа: {str(e)}")
+        return None
+
 def save_message_to_file(channel_title, message_date, message_text, media_info=None):
-    # Створюємо файл для каналу (або відкриваємо існуючий)
-    filename = f'messages/{channel_title}_{message_date.strftime("%Y%m%d")}.txt'
-    with open(filename, 'a', encoding='utf-8') as f:
-        f.write(f"\n{'='*50}\n")
-        f.write(f"Дата: {message_date}\n")
-        f.write(f"Текст: {message_text}\n")
-        if media_info:
-            f.write(f"Медіа: {media_info}\n")
-        f.write(f"{'='*50}\n")
+    # Використовуємо очищену назву каналу для файлу
+    safe_channel_title = sanitize_filename(channel_title)
+    filename = f'messages/{safe_channel_title}_{message_date.strftime("%Y%m%d")}.txt'
+    
+    try:
+        with open(filename, 'a', encoding='utf-8') as f:
+            f.write(f"\n{'='*50}\n")
+            f.write(f"Канал: {channel_title}\n")  # Зберігаємо оригінальну назву в тексті
+            f.write(f"Дата: {message_date}\n")
+            f.write(f"Текст: {message_text}\n")
+            if media_info:
+                f.write(f"Медіа: {media_info}\n")
+            f.write(f"{'='*50}\n")
+    except Exception as e:
+        logger.error(f"Помилка при збереженні повідомлення: {str(e)}")
 
 async def main():
     # Читання адрес каналів з файлу
@@ -90,13 +129,22 @@ def create_handler(channel):
                 f"\nДовжина тексту: {len(message.text) if message.text else 0} символів"
             )
             
-            if message.media and isinstance(message.media, MessageMediaPhoto):
-                media = message.media.photo
-                media_info = f"Photo (ID: {media.id})"
-                log_message += f"\nТип медіа: Фото (ID: {media.id})"
-                logger.info(f"Повідомлення містить фото, ID: {media.id}")
+            media_info = None
+            if message.media:
+                if isinstance(message.media, MessageMediaPhoto):
+                    media = message.media.photo
+                    # Завантажуємо медіа
+                    downloaded_path = await download_media(message, channel.title, message.date)
+                    media_info = f"Photo (ID: {media.id}, Path: {downloaded_path})"
+                    log_message += f"\nТип медіа: Фото (ID: {media.id})"
+                    logger.info(f"Повідомлення містить фото, ID: {media.id}")
+                else:
+                    # Спробуємо завантажити інші типи медіа
+                    downloaded_path = await download_media(message, channel.title, message.date)
+                    if downloaded_path:
+                        media_info = f"Media (Path: {downloaded_path})"
+                        log_message += f"\nТип медіа: Інше"
             else:
-                media_info = None
                 log_message += "\nТип медіа: Немає"
             
             logger.info(log_message)
